@@ -1,0 +1,103 @@
+{
+  "theme": "light",
+  "archetype": "Swiss & High-Contrast",
+  "domain": "Internal Admin Tool / Data-Tooling",
+  "emotional_tone": "Objective, rigid, functional, data-driven",
+  "colors": {
+    "background": {
+      "primary": "#FFFFFF",
+      "secondary": "#F4F4F5",
+      "tertiary": "#E4E4E7"
+    },
+    "text": {
+      "primary": "#09090B",
+      "secondary": "#52525B",
+      "tertiary": "#71717A",
+      "inverse": "#FAFAFA"
+    },
+    "brand": {
+      "primary": "#002FA7",
+      "primary_hover": "#00227A",
+      "accent": "#000000"
+    },
+    "status": {
+      "risk_high": "#DC2626",
+      "risk_medium": "#F59E0B",
+      "risk_low": "#10B981",
+      "info": "#3B82F6"
+    },
+    "border": {
+      "default": "#E4E4E7",
+      "focus": "#09090B"
+    }
+  },
+  "typography": {
+    "font_families": {
+      "heading": "Cabinet Grotesk, sans-serif",
+      "body": "IBM Plex Sans, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "sizes": {
+      "h1": "text-4xl tracking-tighter font-bold",
+      "h2": "text-2xl tracking-tight font-semibold",
+      "h3": "text-xl tracking-tight font-medium",
+      "h4": "text-lg font-medium",
+      "body": "text-sm",
+      "small": "text-xs uppercase tracking-[0.1em]",
+      "metric": "text-5xl tracking-tighter font-light"
+    }
+  },
+  "spacing_and_layout": {
+    "global_padding": "p-6 md:p-8 lg:p-12",
+    "grid_system": "The Control Room Grid",
+    "grid_classes": "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+    "card_padding": "p-6",
+    "border_radius": "rounded-none",
+    "shadows": "shadow-none"
+  },
+  "components": {
+    "surface_strategy": "Grid Borders (Technical Look). Expose the skeleton. Container uses border-collapse style layout or strict 1px solid borders.",
+    "cards": "Flat background, 1px subtle border (border-border), no shadow. Content left-aligned.",
+    "buttons": {
+      "primary": "bg-zinc-950 text-white rounded-none hover:bg-zinc-800 transition-colors px-6 py-2 text-sm font-medium",
+      "secondary": "bg-white text-zinc-950 border border-zinc-200 rounded-none hover:bg-zinc-100 transition-colors px-4 py-2 text-sm font-medium",
+      "destructive": "bg-red-600 text-white rounded-none hover:bg-red-700 transition-colors px-4 py-2 text-sm font-medium"
+    },
+    "inputs": "rounded-none border border-zinc-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:border-transparent",
+    "badges": {
+      "high": "bg-red-100 text-red-800 border border-red-200 rounded-none px-2 py-0.5 text-xs font-medium",
+      "medium": "bg-yellow-100 text-yellow-800 border border-yellow-200 rounded-none px-2 py-0.5 text-xs font-medium",
+      "low": "bg-green-100 text-green-800 border border-green-200 rounded-none px-2 py-0.5 text-xs font-medium"
+    }
+  },
+  "motion": {
+    "hover": "transition-colors duration-200",
+    "focus": "transition-shadow duration-200"
+  },
+  "media": {
+    "images": [],
+    "icons": "lucide-react"
+  },
+  "data_testid_requirements": [
+    "first-name-input",
+    "last-name-input",
+    "gender-select",
+    "calculate-button",
+    "import-data-button",
+    "risk-level-badge",
+    "confidence-penalty-metric",
+    "estimated-matches-metric",
+    "first-name-pop-metric",
+    "last-name-pop-metric"
+  ],
+  "instructions_to_main_agent": [
+    "Use strict grid layouts with sharp borders (rounded-none) to emphasize the technical data-tooling nature.",
+    "The metrics should use the 'metric' typography scale (large, font-light) and mono fonts for actual numbers.",
+    "Ensure 'Import/Refresh Data' button is distinct but not the primary focus (secondary or outline button).",
+    "Add 'data-testid' to all interactive inputs and calculated output fields.",
+    "Use JetBrains Mono or similar monospaced fonts for numerical data and scores to enforce tabular alignment.",
+    "Display caveat text in a muted, smaller font at the bottom of the form or results section.",
+    "For the header, use a simple text logo with a 1px bottom border for the navigation area.",
+    "Ensure the tool is fully accessible, handling contrast ratios correctly."
+  ]
+}
