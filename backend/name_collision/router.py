@@ -74,6 +74,12 @@ async def batch_endpoint(payload: BatchRequest):
                 "estimated_us_matches": est["estimated_us_matches"],
                 "full_name_collision_risk": est["full_name_collision_risk"],
                 "confidence_penalty": est["confidence_penalty"],
+                "rarity_score": (est.get("rarity") or {}).get(
+                    "full_name_rarity_score"
+                ),
+                "rarity_label": (est.get("rarity") or {}).get(
+                    "full_name_rarity_label"
+                ),
                 "nickname_canonical": est["nickname_canonical"],
                 "warnings": est["warnings"],
             }

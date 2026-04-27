@@ -54,6 +54,14 @@ estimated_us_matches = (first_name_population * last_name_population) / 330,000,
 - [x] Admin page `/admin/name-collision`: dataset status bar, form, results (metrics, risk badges, nickname panel, warnings panel, hyphenated breakdown), Import/Refresh button.
 - [x] Full test pass — backend 100%, frontend 100% (testing_agent_v3 iteration_1).
 
+## What's been implemented (2026-04-27)
+- [x] **Rarity score 1–10** (1 = most rare, 10 = most common).
+  - Full-name: `1 + 2·log₁₀(estimated_us_matches)` clamped to [1,10].
+  - First/last component: `10 − 9·log₁₀(rank)/log₁₀(pool_total)` clamped.
+  - Calibrated against actual data: 0 matches → 1, 3 → 2, 18 → 4, 456 → 6, 4 487 → 8, 30 320 → 10.
+  - Returned in `/estimate` (full `rarity` block) and `/batch` (`rarity_score`, `rarity_label`).
+  - Frontend rarity panel: 10-segment color meter (green/yellow/red), per-component sub-scores, calibration formula display.
+
 ## Observed dataset size
 - First names: 83,564 unique (92,353 name+gender combinations).
 - Last names: 162,251.

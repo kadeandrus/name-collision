@@ -4,6 +4,7 @@ In-memory cache + estimation logic for name collision scoring.
 from __future__ import annotations
 
 import logging
+import math
 import re
 from typing import Any, Optional
 
@@ -39,6 +40,10 @@ class NameCache:
         self.last_names: dict[str, dict[str, Any]] = {}
         self.meta: dict[str, Any] = {}
         self.loaded: bool = False
+        # Totals used for rank-based rarity scoring
+        self.total_first_M: int = 0
+        self.total_first_F: int = 0
+        self.total_last: int = 0
 
     async def load_from_db(self, db) -> None:
         fn_map: dict[str, dict[str, dict[str, Any]]] = {}
@@ -72,10 +77,25 @@ class NameCache:
         self.first_names = fn_map
         self.last_names = ln_map
         self.meta = meta or {}
+
+        # Compute totals for rarity scoring
+        total_M = 0
+        total_F = 0
+        for entries in fn_map.values():
+            if "M" in entries:
+                total_M += 1
+            if "F" in entries:
+                total_F += 1
+        self.total_first_M = total_M
+        self.total_first_F = total_F
+        self.total_last = len(ln_map)
+
         self.loaded = True
         logger.info(
-            "NameCache loaded: %d first names, %d last names",
+            "NameCache loaded: %d first names (M=%d, F=%d), %d last names",
             len(fn_map),
+            total_M,
+            total_F,
             len(ln_map),
         )
 
@@ -99,6 +119,90 @@ def _full_name_risk(estimate: Optional[float]) -> str:
     if estimate >= 100:
         return "medium"
     return "low"
+
+
+# --- Rarity scoring (1-10 scale; 1 = most rare, 10 = most common) ---
+RARITY_LABELS = {
+    1: "Extremely rare",
+    2: "Very rare",
+    3: "Very rare",
+    4: "Rare",
+    5: "Uncommon",
+    6: "Uncommon",
+    7: "Common",
+    8: "Very common",
+    9: "Extremely common",
+    10: "Extremely common",
+}
+
+
+def _clamp_score(x: float) -> int:
+    return max(1, min(10, int(round(x))))
+
+
+def rarity_score_from_matches(matches: Optional[float]) -> Optional[int]:
+    """
+    Full-name rarity score 1-10 from estimated_us_matches, log10-calibrated:
+        score = 1 + 2 * log10(matches)   (matches < 1 -> 1; clamped to [1,10])
+
+    Calibration against this dataset:
+        0   matches -> 1  (e.g. Kade Andrus)
+        3           -> 2  (Mike Tait)
+        18          -> 3  (Moses Kim)
+        100         -> 5
+        456         -> 6  (Daniel Norris)
+        4_487       -> 8  (Jessica Brown)
+        30_320      -> 10 (Michael Smith)
+    """
+    if matches is None:
+        return None
+    if matches < 1:
+        return 1
+    return _clamp_score(1 + 2 * math.log10(matches))
+
+
+def rarity_score_from_rank(rank: Optional[int], total: int) -> Optional[int]:
+    """
+    Per-component rarity 1-10 from rank within a known pool.
+    Lower rank = more common = higher score.
+        score = 10 - 9 * log10(rank) / log10(total)
+    """
+    if rank is None or total is None or total <= 1:
+        return None
+    if rank <= 1:
+        return 10
+    return _clamp_score(10 - 9 * math.log10(rank) / math.log10(total))
+
+
+def rarity_label(score: Optional[int]) -> Optional[str]:
+    if score is None:
+        return None
+    return RARITY_LABELS.get(score)
+
+
+def _build_rarity(
+    matches: Optional[float],
+    first_rank: Optional[int],
+    first_total: int,
+    last_rank: Optional[int],
+    last_total: int,
+) -> dict[str, Any]:
+    full_score = rarity_score_from_matches(matches)
+    fn_score = rarity_score_from_rank(first_rank, first_total)
+    ln_score = rarity_score_from_rank(last_rank, last_total)
+    return {
+        "full_name_rarity_score": full_score,
+        "full_name_rarity_label": rarity_label(full_score),
+        "first_name_rarity_score": fn_score,
+        "first_name_rarity_label": rarity_label(fn_score),
+        "last_name_rarity_score": ln_score,
+        "last_name_rarity_label": rarity_label(ln_score),
+        "scale": "1 = most rare, 10 = most common",
+        "method": (
+            "full_name: 1 + 2*log10(estimated_us_matches), clamped [1,10]. "
+            "first/last: 10 - 9*log10(rank)/log10(pool_total), clamped [1,10]."
+        ),
+    }
 
 
 def _is_initial(s: str) -> bool:
@@ -164,6 +268,7 @@ def estimate_name_collision(
         "gender_used": None,
         "gender_confidence": None,
         "first_name_population": None,
+        "first_name_rank": None,
         "first_name_risk_level": "unknown",
         "last_name_population": None,
         "last_name_rank": None,
@@ -172,6 +277,7 @@ def estimate_name_collision(
         "estimated_us_matches": None,
         "full_name_collision_risk": "unknown",
         "confidence_penalty": _penalty_for("medium"),
+        "rarity": None,
         "formula": FORMULA,
         "data_sources": DATA_SOURCES,
         "nickname_canonical": None,
@@ -215,6 +321,7 @@ def estimate_name_collision(
 
     if fn_stats:
         result["first_name_population"] = fn_stats["total_count"]
+        result["first_name_rank"] = fn_stats.get("rank")
         result["first_name_risk_level"] = fn_stats.get("risk_level", "unknown")
         result["gender_used"] = gender_used
         result["gender_confidence"] = gender_conf
@@ -272,6 +379,21 @@ def estimate_name_collision(
         result["full_name_collision_risk"] = "unknown"
         result["confidence_penalty"] = _penalty_for("medium")
 
+    # --- Rarity scoring (1=rarest, 10=most common) ---
+    # Pool total for first-name rank depends on the gender used
+    first_total = 0
+    if gender_used == "M":
+        first_total = cache.total_first_M
+    elif gender_used == "F":
+        first_total = cache.total_first_F
+    result["rarity"] = _build_rarity(
+        matches=result["estimated_us_matches"],
+        first_rank=result["first_name_rank"],
+        first_total=first_total,
+        last_rank=result["last_name_rank"],
+        last_total=cache.total_last,
+    )
+
     # --- Alternate estimate using canonical name (if different) ---
     if (
         canonical
@@ -281,15 +403,26 @@ def estimate_name_collision(
     ):
         can_pop = canonical_stats["total_count"]
         can_est = (can_pop * lpop) / US_POPULATION
+        can_first_total = (
+            cache.total_first_M if canonical_gender == "M" else cache.total_first_F
+        )
         result["alternate_estimate_for_canonical"] = {
             "canonical_first_name": canonical,
             "first_name_population": can_pop,
+            "first_name_rank": canonical_stats.get("rank"),
             "first_name_risk_level": canonical_stats.get("risk_level"),
             "gender_used": canonical_gender,
             "gender_confidence": canonical_gc,
             "estimated_us_matches": int(round(can_est)),
             "full_name_collision_risk": _full_name_risk(can_est),
             "confidence_penalty": _penalty_for(_full_name_risk(can_est)),
+            "rarity": _build_rarity(
+                matches=int(round(can_est)),
+                first_rank=canonical_stats.get("rank"),
+                first_total=can_first_total,
+                last_rank=result["last_name_rank"],
+                last_total=cache.total_last,
+            ),
         }
 
     return result

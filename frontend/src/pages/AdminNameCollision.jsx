@@ -404,6 +404,7 @@ function ResultPanel({ result }) {
     estimated_us_matches,
     full_name_collision_risk,
     confidence_penalty,
+    rarity,
     nickname_canonical,
     alternate_estimate_for_canonical,
     hyphenated_last_name_parts,
@@ -465,6 +466,11 @@ function ResultPanel({ result }) {
           </div>
         </div>
       </div>
+
+      {/* Rarity */}
+      {rarity && (
+        <RarityPanel rarity={rarity} estimate={estimated_us_matches} />
+      )}
 
       {/* Metrics grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-zinc-200 [&>*:nth-child(odd)]:md:border-r [&>*:not(:last-child)]:border-b [&>*:nth-child(odd):last-child]:md:border-b-0 [&>*]:border-zinc-200">
@@ -584,6 +590,131 @@ function ResultPanel({ result }) {
       <div className="text-xs text-zinc-500 font-mono">
         Sources: {data_sources.join(" · ")}
       </div>
+    </div>
+  );
+}
+
+
+function RarityPanel({ rarity, estimate }) {
+  const score = rarity?.full_name_rarity_score;
+  const label = rarity?.full_name_rarity_label;
+  const fnScore = rarity?.first_name_rarity_score;
+  const lnScore = rarity?.last_name_rarity_score;
+  const fnLabel = rarity?.first_name_rarity_label;
+  const lnLabel = rarity?.last_name_rarity_label;
+
+  // Color band: 1-3 green (rare = good for matching),
+  //             4-6 yellow, 7-10 red (common = bad for matching)
+  const bandColor = (s) => {
+    if (s == null) return "bg-zinc-300";
+    if (s <= 3) return "bg-green-600";
+    if (s <= 6) return "bg-yellow-500";
+    return "bg-red-600";
+  };
+  const bandText = (s) => {
+    if (s == null) return "text-zinc-500";
+    if (s <= 3) return "text-green-700";
+    if (s <= 6) return "text-yellow-800";
+    return "text-red-700";
+  };
+
+  return (
+    <div
+      data-testid="rarity-panel"
+      className="border border-zinc-200 p-6 md:p-8"
+    >
+      <div className="flex items-baseline justify-between mb-4 gap-4 flex-wrap">
+        <div>
+          <div className="text-xs uppercase tracking-[0.15em] text-zinc-500">
+            Rarity score
+          </div>
+          <div className="text-xs text-zinc-500 mt-1">
+            1 = most rare · 10 = most common
+          </div>
+        </div>
+        <div className="text-right">
+          <div
+            data-testid="rarity-score-value"
+            className={`text-5xl font-light font-mono tracking-tighter ${bandText(
+              score
+            )}`}
+          >
+            {score ?? "—"}
+            <span className="text-zinc-400 text-2xl">/10</span>
+          </div>
+          <div
+            data-testid="rarity-label"
+            className={`text-xs uppercase tracking-[0.12em] mt-1 ${bandText(
+              score
+            )}`}
+          >
+            {label || "Unknown"}
+          </div>
+        </div>
+      </div>
+
+      {/* 10-segment meter */}
+      <div className="flex gap-1.5 mb-2" data-testid="rarity-meter">
+        {Array.from({ length: 10 }, (_, i) => {
+          const idx = i + 1;
+          const active = score != null && idx <= score;
+          return (
+            <div
+              key={idx}
+              className={`h-3 flex-1 ${
+                active ? bandColor(score) : "bg-zinc-100"
+              } border border-zinc-200`}
+              data-testid={`rarity-meter-cell-${idx}`}
+            />
+          );
+        })}
+      </div>
+      <div className="flex justify-between text-[10px] uppercase tracking-[0.1em] text-zinc-500 mb-6">
+        <span>1 rarest</span>
+        <span>10 most common</span>
+      </div>
+
+      {/* Per-component breakdown */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border-t border-zinc-200 pt-4">
+        <div className="md:border-r border-zinc-200 md:pr-6 pb-4 md:pb-0">
+          <div className="text-xs uppercase tracking-[0.12em] text-zinc-500 mb-1">
+            First name
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span
+              data-testid="first-name-rarity-score"
+              className={`text-2xl font-mono font-light ${bandText(fnScore)}`}
+            >
+              {fnScore ?? "—"}
+            </span>
+            <span className="text-zinc-400 text-sm">/10</span>
+            <span className="text-xs text-zinc-600 ml-2">{fnLabel || ""}</span>
+          </div>
+        </div>
+        <div className="md:pl-6 pt-4 md:pt-0 border-t md:border-t-0 border-zinc-200">
+          <div className="text-xs uppercase tracking-[0.12em] text-zinc-500 mb-1">
+            Last name
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span
+              data-testid="last-name-rarity-score"
+              className={`text-2xl font-mono font-light ${bandText(lnScore)}`}
+            >
+              {lnScore ?? "—"}
+            </span>
+            <span className="text-zinc-400 text-sm">/10</span>
+            <span className="text-xs text-zinc-600 ml-2">{lnLabel || ""}</span>
+          </div>
+        </div>
+      </div>
+
+      {estimate != null && (
+        <div className="text-[11px] text-zinc-500 mt-4 font-mono">
+          Calibration: 1 + 2·log₁₀({formatNum(estimate)}) ≈{" "}
+          {(1 + 2 * Math.log10(Math.max(estimate, 1))).toFixed(2)} → clamped to{" "}
+          {score}
+        </div>
+      )}
     </div>
   );
 }
